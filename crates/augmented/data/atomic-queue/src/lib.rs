@@ -127,12 +127,17 @@ impl<T> Queue<T> {
     ///
     /// This is a CAS loop to increment the head of the queue, then another to push this element in.
     pub fn push(&self, element: T) -> bool {
+        self.try_push(element).is_ok()
+    }
+    
+    // Same as push but return result, so on failure can get the elementt back
+    pub fn try_push(&self, element: T) -> Result<(), T> {
         let mut head = self.head.load(Ordering::Relaxed);
         let elements_len = self.elements.len();
         loop {
             let length = head as i64 - self.tail.load(Ordering::Relaxed) as i64;
             if length >= elements_len as i64 {
-                return false;
+                return Err(element);
             }
 
             if self
@@ -141,7 +146,7 @@ impl<T> Queue<T> {
                 .is_ok()
             {
                 self.do_push(element, head);
-                return true;
+                return Ok(());
             }
 
             head = self.head.load(Ordering::Relaxed);
